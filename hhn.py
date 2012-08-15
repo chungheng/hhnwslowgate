@@ -16,7 +16,7 @@ def hodgkin_huxley(t,I_ext):
     V = np.zeros_like(t)
     V[0] = -10.
     
-    I = np.zeros(3,len(t))
+    I = np.zeros((3,len(t)))
     
     a = np.zeros(3)
     b = np.zeros(3)
@@ -28,19 +28,20 @@ def hodgkin_huxley(t,I_ext):
         a[1] = (25.-V[i-1])/(10.*(np.exp((25.-V[i-1])/10.)-1.))
         a[2] = 0.07*np.exp(-V[i-1]/20.)
     
-        b(1)=0.125*np.exp(-V(i-1)/80)
-        b(2)=4*np.exp(-V(i-1)/18);
-        b(3)=1/(exp((30-V(i-1))/10)+1);
+        b[0] = 0.125*np.exp(-V[i-1]/80.)
+        b[1] = 4.*np.exp(-V[i-1]/18.);
+        b[2] = 1./(np.exp((30.-V[i-1])/10.)+1.);
     
-        tau = 1 ./ (a+b);
-        x0 = a.*tau;
+        tau = 1. / (a+b)
+        x0 = a*tau;
     
-        x = (1-dt/tau)*x + dt/tau*x0;
+        x = (1.-dt/tau)*x + dt/tau*x0
     
-        gnmh(1) = g(1)*x(1)^4;
-        gnmh(2) = g(2)*x(2)^3*x(3);
-        gnmh(3) = g(3);
+        gnmh[0] = g[0]*x[0]**4;
+        gnmh[1] = g[1]*x[1]**3*x[2];
+        gnmh[2] = g[2]
 
-        % Update the ionic currents and membrane voltage:
-        I(:,i) = (gnmh.*(V(i-1)-E))';
-        V(i)   = V(i-1) + dt*(I_ext(i)-sum(I(:,i)));
+        # Update the ionic currents and membrane voltage:
+        I[:,i] = gnmh*(V[i-1]-E)
+        V[i]   = V[i-1] + dt*(I_ext[i]-np.sum(I[:,i]))
+    return V
