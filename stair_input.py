@@ -1,9 +1,9 @@
 # Duplicate the result 
 import numpy as np
-from hhn import hodgkin_huxley
+from hhn import hodgkin_huxley, compute_psth
 from matplotlib import pyplot as p
 
-dt = 1e-5
+dt = 1e-4
 
 
 initial_period   = 8.
@@ -29,17 +29,24 @@ for y,x in zip(level[:-1],level[1:]):
     t = np.concatenate((t,seg_t))
     I = np.concatenate((I,seg_I))
     
+V, spk = hodgkin_huxley(t,I)
+t_psth, psth = compute_psth(t,spk)
+for i in xrange(7):
+    V, spk = hodgkin_huxley(t,I)
+    t_psth, temp = compute_psth(t,spk)
+    psth += temp
+psth /= 8.
 
-V = hodgkin_huxley(t,I)
-
-
-fig = p.figure()
+fig = p.figure(figsize=(7,4))
 ax = fig.add_subplot(2,1,1,
                      title="Staircase Waveform",
+                     xticklabels=[],
                      xlim = (6,20),ylim=(0,120))
 ax.plot(t,I)
 ax = fig.add_subplot(2,1,2,
-                     title="Membrane Potential",
+                     title="PSTH",
+                     xlabel="time, sec",
+                     ylabel="Frequency, Hz",
                      xlim = (6,20))
-ax.plot(t,V)
+ax.plot(t_psth,psth)
 p.show()

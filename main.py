@@ -8,7 +8,8 @@ dt = 1e-5
 t  = np.arange(0,1,dt)
 I  = np.ones_like(t)*10
     
-V = hodgkin_huxley(t,I)
+V, spk = hodgkin_huxley(t,I)
+
 p.figure()
 p.plot(t,V)
 #p.savefig("test.png")

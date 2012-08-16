@@ -1,5 +1,6 @@
 import numpy as np
 from progressbar import *
+from numpy import random
 
 n_a = lambda v: (10.-v)/(100.*(np.exp((10.-v)/10.)-1.))
 n_b = lambda v: 0.125*np.exp(-v/80.)
@@ -8,7 +9,7 @@ m_b = lambda v: 4.*np.exp(-v/18.)
 h_a = lambda v: 0.07*np.exp(-v/20.)
 h_b = lambda v: 1./(np.exp((30.-v)/10.)+1.)
 
-def compute_psth(t,s,interval=0.025,bin=0.1):
+def compute_psth(t,s,interval=0.025,binSize=0.1):
     """
     Compute the psth of spike sequence S with time course t
     
@@ -18,15 +19,22 @@ def compute_psth(t,s,interval=0.025,bin=0.1):
         bin size
         
     """
-    dt   = t[1]-t[0]
-    t_ds = np.arange(t[0],t[-1],interval)
-    freq = np.zeros_like(t_ds)
-    interval_length = round(bin/dt)+1
-    for i,ti in enumerate(t_ds):
-        beg = round(ti/dt)
-        end = min( len(t), beg+interval_length )
-        freq[i] = len( np.nonzero(s[beg:end])[0] )/dt/(beg-end)
+    dt = t[1]-t[0]
+    t_ds  = np.arange(t[0],t[-1]+interval,interval)
+    s_idx = np.nonzero(s)[0]
+    freq  = np.zeros_like(t_ds)
+    off = int(round(binSize/interval))
+    for spk in s_idx:
+        idx = int(dt*spk/interval)
+        freq[ max(0,idx-off+1):idx+1 ] += 1
+    freq /= binSize    
     return t_ds, freq
+
+def _spike_detect(v_pre,v_cur,v_post):
+    if v_pre <= v_cur and v_cur >= v_post:
+        return 1
+    else:
+        return 0
 
 def hodgkin_huxley(t,I_ext,noise=None):
     """
@@ -42,6 +50,7 @@ def hodgkin_huxley(t,I_ext,noise=None):
     x = np.array([  0.,   0.,  1.000])
     
     V = np.zeros_like(t)
+    s = np.zeros_like(t)
     V[0] = -10.
     
     I = np.zeros((3,len(t)))
@@ -53,10 +62,10 @@ def hodgkin_huxley(t,I_ext,noise=None):
     pbar = ProgressBar(maxval=len(t))
     pbar.start()
     for i in xrange(1,len(t)):
-        pbar.update(i)
-        a[0] = n_a(V[i-1])
-        a[1] = m_a(V[i-1])
-        a[2] = h_a(V[i-1])
+        #pbar.update(i)
+        a[0] = n_a(V[i-1])*(1+0.05*random.rand())
+        a[1] = m_a(V[i-1])*(1+0.05*random.rand())
+        a[2] = h_a(V[i-1])*(1+0.05*random.rand())
     
         b[0] = n_b(V[i-1])
         b[1] = m_b(V[i-1])
@@ -72,7 +81,9 @@ def hodgkin_huxley(t,I_ext,noise=None):
         gnmh[2] = g[2]
 
         # Update the ionic currents and membrane voltage:
-        I[:,i] = gnmh*(V[i-1]-E)
-        V[i]   = V[i-1] + dt*(I_ext[i]-np.sum(I[:,i]))
+        I[:,i] = gnmh*(V[i-1]-E*(1+0.05*random.rand(3)))
+        V[i]   = V[i-1] + dt*(0.05*random.rand()*I_ext[i]-np.sum(I[:,i]))
     pbar.finish()
-    return V
+    for i in xrange(2,len(t)):
+        s[i-1] = _spike_detect(V[i-2],V[i-1],V[i])
+    return V, s
