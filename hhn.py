@@ -1,6 +1,12 @@
+import sys
 import numpy as np
 from progressbar import *
 from numpy import random
+import pdb
+s_a = 10
+s_b = 250
+
+
 
 n_a = lambda v: (10.-v)/(100.*(np.exp((10.-v)/10.)-1.))
 n_b = lambda v: 0.125*np.exp(-v/80.)
@@ -8,6 +14,7 @@ m_a = lambda v: (25.-v)/(10.*(np.exp((25.-v)/10.)-1.))
 m_b = lambda v: 4.*np.exp(-v/18.)
 h_a = lambda v: 0.07*np.exp(-v/20.)
 h_b = lambda v: 1./(np.exp((30.-v)/10.)+1.)
+_update_sg = lambda sg,diff_c,dt: (1.-s_a*dt)*sg + s_a*dt + s_b*diff_c 
 
 def compute_psth(t,s,interval=0.025,binSize=0.1):
     """
@@ -30,11 +37,52 @@ def compute_psth(t,s,interval=0.025,binSize=0.1):
     freq /= binSize    
     return t_ds, freq
 
-def _spike_detect(v_pre,v_cur,v_post):
-    if v_pre <= v_cur and v_cur >= v_post:
-        return 1
-    else:
-        return 0
+
+def hodgkin_huxley_slowGate(t,I_ext,noise=None):
+    """
+    Standard Hodgkin-Huxley Neuron with Potassian, Sodium, and leaky channel. 
+    Original written by Lev Givon and Robert Turetsky in Matlab.
+    """
+    
+    t = np.array(t)*1000
+        
+    V = np.zeros_like(t)
+    s = np.zeros_like(t)
+    V[0] = -10.
+    
+    E   = np.array([-12., 115., 10.613])
+    g   = np.array([ 36., 120.,  0.300])
+    nmh = np.array([  0.,   0.,  1.000])
+    
+    I = np.zeros((3,len(t)))
+    gnmh = np.zeros(3)
+
+    sg = np.zeros_like(t)
+    sg[0] = 1.
+    if sys.flags.debug:
+        pbar = ProgressBar(maxval=len(t))
+        pbar.start()
+    for i in xrange(1,len(t)):
+        if sys.flags.debug: pbar.update(i) 
+        dt = t[i]-t[i-1]
+        
+        _update_nmh(nmh,V[i-1],dt)
+        nmh += 0.0 if noise == None else random.rand(3)*noise**2
+        
+        sg[i] = _update_sg(sg[i-1],I_ext[i]-I_ext[i-1],dt)
+        
+        gnmh[0] = g[0]*nmh[0]**4
+        gnmh[1] = g[1]*nmh[1]**3*nmh[2]*sg[i]
+        gnmh[2] = g[2]
+
+        # Update the ionic currents and membrane voltage:
+        I[:,i] = gnmh*(V[i-1]-E)
+        V[i]   = V[i-1] + dt*(I_ext[i]-np.sum(I[:,i]))
+        
+    if sys.flags.debug: pbar.finish()
+    for i in xrange(2,len(t)):
+        s[i-1] = _spike_detect(V[i-2],V[i-1],V[i])
+    return V, s, sg
 
 def hodgkin_huxley(t,I_ext,noise=None):
     """
@@ -43,47 +91,57 @@ def hodgkin_huxley(t,I_ext,noise=None):
     """
     
     t = np.array(t)*1000
-    dt = t[1]-t[0]
-
-    E = np.array([-12., 115., 10.613])
-    g = np.array([ 36., 120.,  0.300])
-    x = np.array([  0.,   0.,  1.000])
-    
+        
     V = np.zeros_like(t)
     s = np.zeros_like(t)
     V[0] = -10.
     
+    E   = np.array([-12., 115., 10.613])
+    g   = np.array([ 36., 120.,  0.300])
+    nmh = np.array([  0.,   0.,  1.000])
+    
     I = np.zeros((3,len(t)))
-    
-    a = np.zeros(3)
-    b = np.zeros(3)
-    
     gnmh = np.zeros(3)
-    pbar = ProgressBar(maxval=len(t))
-    pbar.start()
+
+    if sys.flags.debug:
+        pbar = ProgressBar(maxval=len(t))
+        pbar.start()
     for i in xrange(1,len(t)):
-        #pbar.update(i)
-        a[0] = n_a(V[i-1])*(1+0.05*random.rand())
-        a[1] = m_a(V[i-1])*(1+0.05*random.rand())
-        a[2] = h_a(V[i-1])*(1+0.05*random.rand())
+        if sys.flags.debug: pbar.update(i) 
+        dt = t[i]-t[i-1]
+        
+        _update_nmh(nmh,V[i-1],dt)
+        nmh += 0.0 if noise == None else random.rand(3)*noise**2
     
-        b[0] = n_b(V[i-1])
-        b[1] = m_b(V[i-1])
-        b[2] = h_b(V[i-1])
-    
-        tau = 1. / (a+b)
-        x0 = a*tau;
-    
-        x = (1.-dt/tau)*x + dt/tau*x0
-    
-        gnmh[0] = g[0]*x[0]**4;
-        gnmh[1] = g[1]*x[1]**3*x[2];
+        gnmh[0] = g[0]*nmh[0]**4
+        gnmh[1] = g[1]*nmh[1]**3*nmh[2]
         gnmh[2] = g[2]
 
         # Update the ionic currents and membrane voltage:
-        I[:,i] = gnmh*(V[i-1]-E*(1+0.05*random.rand(3)))
-        V[i]   = V[i-1] + dt*(0.05*random.rand()*I_ext[i]-np.sum(I[:,i]))
-    pbar.finish()
+        I[:,i] = gnmh*(V[i-1]-E)
+        V[i]   = V[i-1] + dt*(I_ext[i]-np.sum(I[:,i]))
+        
+    if sys.flags.debug: pbar.finish()
     for i in xrange(2,len(t)):
         s[i-1] = _spike_detect(V[i-2],V[i-1],V[i])
     return V, s
+
+def _spike_detect(v_pre,v_cur,v_post):
+    if v_pre <= v_cur and v_cur >= v_post:
+        return 1
+    else:
+        return 0
+
+def _update_nmh(x,v,dt):
+    a = np.zeros(3)
+    b = np.zeros(3)
+    a[0] = n_a(v)
+    a[1] = m_a(v)
+    a[2] = h_a(v)
+    
+    b[0] = n_b(v)
+    b[1] = m_b(v)
+    b[2] = h_b(v)
+    tau = 1. / (a+b)
+    x0 = a*tau;
+    x[:] =  (1.-dt/tau)*x + dt/tau*x0

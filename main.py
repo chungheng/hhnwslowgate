@@ -4,9 +4,9 @@ import numpy as np
 from matplotlib import pyplot as p
 
 
-dt = 1e-5
+dt = 3e-5
 t  = np.arange(0,1,dt)
-I  = np.ones_like(t)*10
+I  = np.ones_like(t)*15
     
 V, spk = hodgkin_huxley(t,I)
 

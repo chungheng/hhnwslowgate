@@ -1,18 +1,19 @@
 # Duplicate the result 
 import numpy as np
-from hhn import hodgkin_huxley, compute_psth
+from hhn import hodgkin_huxley, compute_psth, hodgkin_huxley_slowGate
 from matplotlib import pyplot as p
 
-dt = 1e-4
+dt = 3e-5
 
-
-initial_period   = 8.
+# Prepare staircase input waveform
+# ================================
+initial_period   = 2.
 transient_period = 0.3
 transient_length = round(transient_period/dt)
 interval_period  = 2.
 
 hamming_window = np.hanning(transient_length*2)[:transient_length]
-level = np.array([10.,40.,70.,100.,70.,40.,10.])
+level = np.array([10.,25.,40.,55.,40.,25.,10.])
 
 
 t = np.arange(0,initial_period,dt)
@@ -28,25 +29,40 @@ for y,x in zip(level[:-1],level[1:]):
         
     t = np.concatenate((t,seg_t))
     I = np.concatenate((I,seg_I))
-    
-V, spk = hodgkin_huxley(t,I)
+
+
+# Run simulation
+# ==============
+trial = 1
+noise = 1e-4    
+V, spk, sg = hodgkin_huxley_slowGate(t,I,noise)
 t_psth, psth = compute_psth(t,spk)
-for i in xrange(7):
-    V, spk = hodgkin_huxley(t,I)
+
+for i in xrange(1,trial):
+    V, spk, sg = hodgkin_huxley_slowGate(t,I,noise)
     t_psth, temp = compute_psth(t,spk)
     psth += temp
-psth /= 8.
+psth /= float(trial)
 
 fig = p.figure(figsize=(7,4))
-ax = fig.add_subplot(2,1,1,
+ax = fig.add_subplot(4,1,1,
                      title="Staircase Waveform",
                      xticklabels=[],
-                     xlim = (6,20),ylim=(0,120))
+                     xlim = (0,7),ylim=(0,120))
 ax.plot(t,I)
-ax = fig.add_subplot(2,1,2,
+ax = fig.add_subplot(4,1,2,
                      title="PSTH",
                      xlabel="time, sec",
-                     ylabel="Frequency, Hz",
-                     xlim = (6,20))
+                     xlim = (0,7))
 ax.plot(t_psth,psth)
+ax = fig.add_subplot(4,1,3,
+                     
+                     title="s",
+                     xlim = (0,7))
+ax.plot(t,sg)
+ax = fig.add_subplot(4,1,4,
+                     xlabel="time, sec",
+                     title="s",
+                     xlim = (0,7))
+ax.plot(t,V)
 p.show()
