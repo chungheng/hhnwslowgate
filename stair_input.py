@@ -1,6 +1,6 @@
 # Duplicate the result 
 import numpy as np
-from hhn import hodgkin_huxley, compute_psth, hodgkin_huxley_slowGate
+from hhn import hodgkin_huxley, compute_psth, hodgkin_huxley_slowGate, hodgkin_huxley_slowChannel
 from matplotlib import pyplot as p
 
 dt = 3e-5
@@ -33,36 +33,36 @@ for y,x in zip(level[:-1],level[1:]):
 
 # Run simulation
 # ==============
-trial = 1
-noise = 1e-4    
-V, spk, sg = hodgkin_huxley_slowGate(t,I,noise)
+trial = 60
+noise = 1e-2    
+V, spk, s = hodgkin_huxley_slowChannel(t,I,noise)
 t_psth, psth = compute_psth(t,spk)
 
 for i in xrange(1,trial):
-    V, spk, sg = hodgkin_huxley_slowGate(t,I,noise)
+    V, spk, s = hodgkin_huxley_slowChannel(t,I,noise)
     t_psth, temp = compute_psth(t,spk)
     psth += temp
-psth /= float(trial)
+psth /= trial
 
-fig = p.figure(figsize=(7,4))
+fig = p.figure(figsize=(14,10))
 ax = fig.add_subplot(4,1,1,
                      title="Staircase Waveform",
                      xticklabels=[],
-                     xlim = (0,7),ylim=(0,120))
+                     xlim = (0.1,14),ylim=(0,120))
 ax.plot(t,I)
 ax = fig.add_subplot(4,1,2,
                      title="PSTH",
                      xlabel="time, sec",
-                     xlim = (0,7))
+                     xlim = (0.1,14))
 ax.plot(t_psth,psth)
 ax = fig.add_subplot(4,1,3,
                      
                      title="s",
-                     xlim = (0,7))
-ax.plot(t,sg)
+                     xlim = (0.1,14))
+ax.plot(t,s)
 ax = fig.add_subplot(4,1,4,
                      xlabel="time, sec",
-                     title="s",
-                     xlim = (0,7))
+                     title="Voltage",
+                     xlim = (0.1,14))
 ax.plot(t,V)
-p.show()
+p.savefig("test.png")
